@@ -1,0 +1,82 @@
+spring:
+  application:
+    name: fuelpulse-api
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:fuelpulse_db}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000
+      max-lifetime: 600000
+
+  jpa:
+    # REMOVIDO: database-platform: org.hibernate.spatial.dialect.postgis.PostgisDialect
+    # Essa classe e do Hibernate 5. No Hibernate 6 (Spring Boot 3.x) o
+    # PostgreSQLDialect ja cobre PostGIS quando hibernate-spatial esta no
+    # classpath. Declarar o dialeto antigo quebra o boot.
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+
+security:
+  jwt:
+    # Sem valor default de proposito. A app deve FALHAR no boot se o segredo
+    # nao for fornecido, em vez de subir com uma chave conhecida e publicada
+    # no repositorio. Isso e uma decisao de design, nao um esquecimento.
+    #
+    # Na Fase 2 isso vira um par de chaves RS256 (private key para assinar,
+    # JWKS publico para verificar) e essas duas linhas somem.
+    secret-key: ${JWT_SECRET}
+    expiration-ms: 900000          # 15 min (era 24h: janela larga demais)
+    refresh-expiration-ms: 604800000  # 7 dias
+
+  rate-limit:
+    capacity: 100
+    tokens-per-minute: 60
+
+  # Limites de dominio que tambem sao controle de seguranca:
+  # sem teto de raio, /stations/nearby vira ferramenta de enumeracao da base.
+  geo:
+    max-radius-meters: 50000
+    max-results: 100
+
+server:
+  port: ${PORT:8080}
+  error:
+    # Era `always` nos dois: vazava mensagem de excecao e estrutura interna
+    # para o cliente. Information disclosure.
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+
+logging:
+  level:
+    root: INFO
+    com.fuelpulse.api: INFO
+    org.springframework.security: INFO

@@ -1,0 +1,25 @@
+# Compiled class files & build directories
+target/
+*.class
+
+# IDE & Editor files
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
+
+# Environment & Secrets
+.env
+*.pem
+*.pfx
+*.jks
+
+# Logs
+*.log
+logs/
+
+# OS metadata
+.DS_Store
+Thumbs.db

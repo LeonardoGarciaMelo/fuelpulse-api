@@ -1,0 +1,19 @@
+# Overrides apenas para desenvolvimento local.
+# Nada aqui deve ser assumido como valido em producao.
+
+spring:
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  error:
+    # Em dev, mensagens de validacao ajudam. Continua sem stacktrace.
+    include-message: always
+    include-binding-errors: always
+
+logging:
+  level:
+    com.fuelpulse.api: DEBUG
