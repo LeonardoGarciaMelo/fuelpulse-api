@@ -4,10 +4,21 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <!--
+      Spring Boot 4.1.x.
+
+      Every 3.x branch reached end of open-source support in June 2026 (3.5.16 was
+      the final free release). 4.1 is the recommended target for new projects and
+      holds OSS support until July 2027; 4.0 expires in December 2026.
+
+      Running an EOL framework in a repository whose premise is security would be
+      self-defeating: the OWASP Dependency-Check configured below would flag the
+      framework itself.
+    -->
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.2</version>
+        <version>4.1.1</version>
         <relativePath/>
     </parent>
 
@@ -18,12 +29,19 @@
     <description>Multi-brand gas station and fuel price API, built with a security-first approach</description>
 
     <properties>
-        <java.version>21</java.version>
-        <springdoc.version>2.6.0</springdoc.version>
+        <!--
+          Java 25 LTS. Spring Boot 4 keeps a Java 17 baseline but offers
+          first-class support for 25, so there is no forced jump - this is a
+          deliberate choice to sit on a supported LTS rather than the newest JDK.
+        -->
+        <java.version>25</java.version>
+
+        <!-- springdoc 3.x is the line built against Spring Boot 4; 2.x is for Boot 3. -->
+        <springdoc.version>3.1.1</springdoc.version>
+
+        <!-- VERIFY before building: these two move independently of the Boot BOM. -->
         <bucket4j.version>8.10.1</bucket4j.version>
-        <jjwt.version>0.12.6</jjwt.version>
         <owasp.dependency.check.version>10.0.3</owasp.dependency.check.version>
-        <testcontainers.version>1.20.1</testcontainers.version>
     </properties>
 
     <dependencies>
@@ -36,6 +54,23 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
+
+        <!--
+          JWT handling comes from Spring Security (Nimbus JOSE under the hood),
+          not from a hand-rolled jjwt integration.
+
+          This replaces the three jjwt dependencies that were here before. The
+          reasoning matters more than the swap: JwtDecoder validates signature,
+          expiry, issuer and audience as one vetted unit, and rejects `alg: none`
+          and algorithm-confusion attacks by construction. Wiring those checks by
+          hand is where most tutorial JWT implementations get quietly broken.
+          It also provides the JWKS plumbing the roadmap calls for.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
@@ -55,49 +90,24 @@
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
-        <!--
-          hibernate-spatial: a versao e herdada do BOM do Spring Boot (alinhada
-          com hibernate-core). Se o build reclamar de versao ausente, pinne com
-          a mesma versao resolvida para org.hibernate.orm:hibernate-core.
-        -->
         <dependency>
             <groupId>org.hibernate.orm</groupId>
             <artifactId>hibernate-spatial</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
-        <!-- ============ JWT ============ -->
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-api</artifactId>
-            <version>${jjwt.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-impl</artifactId>
-            <version>${jjwt.version}</version>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-jackson</artifactId>
-            <version>${jjwt.version}</version>
-            <scope>runtime</scope>
-        </dependency>
-
         <!-- ============ Rate limiting ============ -->
         <!--
-          bucket4j-core sozinho e IN-MEMORY: o limite nao e compartilhado entre
-          instancias. Mantido por enquanto porque a Fase 2 roda com 1 instancia.
-          Ao migrar para Redis, trocar/adicionar o modulo distribuido do Bucket4j
-          e ajustar o README (hoje ele NAO promete rate limit distribuido).
+          In-memory only: the bucket is not shared across instances. Acceptable
+          while this runs as a single process. The README must not claim
+          distributed rate limiting until the Bucket4j Redis module replaces this.
         -->
         <dependency>
             <groupId>com.bucket4j</groupId>
@@ -130,16 +140,28 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!--
+          Testcontainers versions are managed by the Spring Boot BOM - do not pin
+          them by hand, or the modules can drift out of sync with each other.
+        -->
         <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>${testcontainers.version}</version>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
-            <version>${testcontainers.version}</version>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -160,13 +182,37 @@
             </plugin>
 
             <!--
-              OWASP Dependency-Check.
-              Antes: failOnError=false => o scan nunca quebrava o build (decorativo).
-              Agora: falha em CVSS >= 7. Nao esta amarrado ao ciclo de vida padrao
-              de proposito: roda sob demanda ou no CI (`mvn dependency-check:check`),
-              porque o download do NVD e lento.
-              NOTA: desde a v9 a NVD exige API key. Configure NVD_API_KEY no CI:
-              https://nvd.nist.gov/developers/request-an-api-key
+              Annotation processing must be declared explicitly.
+
+              Since JDK 23, javac no longer discovers annotation processors on the
+              classpath automatically. Without this block Lombok silently does not
+              run, and the compiler reports missing getters as if the source were
+              wrong - which is exactly the failure this project hit.
+
+              Anything added here must list EVERY processor the build needs:
+              declaring the path disables classpath discovery entirely. If
+              spring-boot-configuration-processor is added later, it goes here too.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+
+            <!--
+              Fails the build at CVSS >= 7. Not bound to the default lifecycle:
+              run it on demand or in CI with `mvn dependency-check:check`, because
+              the first NVD sync is slow.
+
+              Requires an NVD API key since v9: https://nvd.nist.gov/developers/request-an-api-key
             -->
             <plugin>
                 <groupId>org.owasp</groupId>
@@ -180,6 +226,22 @@
                         <format>SARIF</format>
                     </formats>
                 </configuration>
+            </plugin>
+
+            <!--
+            Turning on the integration tests
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
